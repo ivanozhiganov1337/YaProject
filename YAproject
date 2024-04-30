@@ -1,0 +1,268 @@
+import datetime
+
+bot = telebot.TeleBot('7095243446:AAH5r-oRjJFwj6EfCwcf-V3GJFsLiAVApM8')
+hght = None
+weight = None
+yo = None
+alpha = None
+
+
+@bot.message_handler(commands=['start', 'привет'])
+def m_start(message):
+    conn = sqlite3.connect('kallorii.sql')
+    cur = conn.cursor()
+    cur.execute('CREATE TABLE IF NOT EXISTS users (user_id varchar(50) primary key, norm_k varchar(6))')
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    markup = types.InlineKeyboardMarkup()
+    but1 = types.InlineKeyboardButton('Старт!', callback_data='start_d')
+    markup.row(but1)
+
+    if message.from_user.first_name and message.from_user.last_name:
+        bot.send_message(message.chat.id, f'Привет, <em>{message.from_user.first_name} {message.from_user.last_name}</em>, ты запустил моего бота', parse_mode='html', reply_markup=markup)
+    elif message.from_user.first_name:
+        bot.send_message(message.chat.id,f'Привет, <em>{message.from_user.first_name}</em>, ты запустил моего бота', parse_mode='html', reply_markup=markup)
+    elif message.from_user.last_name:
+        bot.send_message(message.chat.id, f'Привет, <em>{message.from_user.last_name}</em>, ты запустил моего бота', parse_mode='html', reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, f'Привет, ты запустил моего бота', reply_markup=markup)
+
+@bot.message_handler(commands=['help', 'помощь'])
+def m_help(message):
+    markup = types.InlineKeyboardMarkup()
+    but_inf = types.InlineKeyboardButton('Узнать остаток калорий на сегодня', callback_data='inf_n_k')
+    but_cloncluse = types.InlineKeyboardButton('Внести поторебление/траты', callback_data='concluse')
+    markup.row(but_inf, but_cloncluse)
+    bot.send_message(message.chat.id, '<b><em>Это навигация по моему проэкту</em></b>', parse_mode='html', reply_markup=markup)
+
+def concluse(massage):
+    markup = types.InlineKeyboardMarkup()
+    but_1 = types.InlineKeyboardButton('Потребление', callback_data='potrebl')
+    but_2 = types.InlineKeyboardButton('Траты', callback_data='trati')
+    markup.row(but_1, but_2)
+
+    bot.send_message(massage.chat.id, "Что вы хотите внести?", reply_markup=markup)
+
+def inf_n_k(massage):
+    conn = sqlite3.connect('kallorii.sql')
+    cur = conn.cursor()
+    cur.execute(f"""SELECT * FROM users WHERE user_id = '%s'""" % massage.chat.id)
+    pimp = cur.fetchall()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    pimp1 = pimp[0][-1].split(';')
+
+    markup = types.InlineKeyboardMarkup()
+    but1 = types.InlineKeyboardButton('Назад', callback_data='help')
+    markup.row(but1)
+
+    bot.send_message(massage.chat.id, f'Осталось на сегодня: {pimp1[0]}', reply_markup=markup)
+
+def m_concluse(massage, alp):
+    global alpha
+    bot.send_message(massage.chat.id, 'Введите количсетво калорий👀')
+    alpha = alp
+    bot.register_next_step_handler(massage, refcluse)
+
+def refcluse(massage):
+    global alpha
+
+    n_k = massage.text.strip()
+
+    a = datetime.datetime.today()
+    a = str(a)
+    a = a[:10]
+    aaa = a.split('-')
+    a = ''
+    for i in aaa:
+        a += i
+
+    conn = sqlite3.connect('kallorii.sql')
+    cur = conn.cursor()
+    cur.execute(f"""pragma table_info(users)""")
+    b = cur.fetchall()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    check = 0
+    for i in b:
+        if i[1] == a:
+            check += 1
+
+    if check == 0:
+        conn = sqlite3.connect('kallorii.sql')
+        cur = conn.cursor()
+        cur.execute(f"""ALTER TABLE users ADD COLUMN '%s' VARCHAR""" % a)
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        conn = sqlite3.connect('kallorii.sql')
+        cur = conn.cursor()
+        cur.execute(f"""SELECT user_id From users""")
+        user_id = cur.fetchall()
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        conn = sqlite3.connect('kallorii.sql')
+        cur = conn.cursor()
+        cur.execute(f"""SELECT norm_k From users""")
+        normika = cur.fetchall()
+        conn.commit()
+        cur.close()
+        conn.close()
+        user_id = user_id[::-1]
+
+        for i in user_id:
+            brenk = i[0]
+            itch = str((normika[user_id.index(i)][0][:-2])) + ';' + '0' + ';' + '0'
+
+            conn = sqlite3.connect('kallorii.sql')
+            cur = conn.cursor()
+            cur.execute(f"""UPDATE users SET '%s' = '%s' WHERE user_id = '%s'""" % (a, itch, brenk))
+            conn.commit()
+            cur.close()
+            conn.close()
+
+    conn = sqlite3.connect('kallorii.sql')
+    cur = conn.cursor()
+    cur.execute(f"""SELECT * FROM users WHERE user_id = '%s'""" % massage.chat.id)
+    pimp = cur.fetchall()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    pimp1 = pimp[0][-1].split(';')
+
+    if alpha == 1:
+
+        asdfg = int(pimp1[0]) + int(n_k)
+        asdfg1 = int(n_k)
+        pimp1[0] = asdfg
+        pimp1[1] = asdfg1
+        pimp2 = str(pimp1[0]) + ';' + str(pimp1[1]) + ';' + str(pimp1[2])
+
+        conn = sqlite3.connect('kallorii.sql')
+        cur = conn.cursor()
+        cur.execute(f"""UPDATE users SET '%s' = '%s' WHERE user_id = '%s'""" % (a, pimp2, massage.chat.id))
+        conn.commit()
+        cur.close()
+        conn.close()
+    else:
+        asdfg = int(pimp1[0]) - int(n_k)
+        asdfg1 = int(n_k)
+        pimp1[0] = asdfg
+        pimp1[2] = asdfg1
+        pimp2 = str(pimp1[0]) + ';' + str(pimp1[1]) + ';' + str(pimp1[2])
+
+        conn = sqlite3.connect('kallorii.sql')
+        cur = conn.cursor()
+        cur.execute(f"""UPDATE users SET '%s' = '%s' WHERE user_id = '%s'""" % (a, pimp2, massage.chat.id))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    conn = sqlite3.connect('kallorii.sql')
+    cur = conn.cursor()
+    cur.execute(f"""SELECT * FROM users WHERE user_id = '%s'""" % massage.chat.id)
+    pimp = cur.fetchall()
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    pimp1 = pimp[0][-1].split(';')
+
+    markup = types.InlineKeyboardMarkup()
+    but1 = types.InlineKeyboardButton('Назад', callback_data='help')
+    markup.row(but1)
+
+    bot.send_message(massage.chat.id,f'Осталось на сегодня: {pimp1[0]}', reply_markup=markup)
+
+
+
+
+@bot.message_handler(commands=['start_daires', 'начало_записи'])
+def m_start_d(message):
+    bot.send_message(message.chat.id, 'Ввидите свой возраст(целым числом)', parse_mode='html')
+    bot.register_next_step_handler(message, yo1)
+
+
+def yo1(message):
+    global yo
+    yo = message.text.strip()
+    bot.send_message(message.chat.id, 'Ввидите свой рост(целым числом)', parse_mode='html')
+    bot.register_next_step_handler(message, height)
+
+
+def height(message):
+    global hght
+    hght = message.text.strip()
+    bot.send_message(message.chat.id, 'Ввидите свой вес в кг(целым числом)', parse_mode='html')
+    bot.register_next_step_handler(message, weight1)
+
+
+def weight1(message):
+    global weight, hght, yo
+    weight = message.text.strip()
+    norm_k = (int(weight)) * 10 + ((6.25 * int(hght)) // 1) - (5 * int(yo)) + 655
+
+    conn = sqlite3.connect('kallorii.sql')
+    cur = conn.cursor()
+    cur.execute("INSERT INTO users (user_id, norm_k) VALUES ('%s', '%s')" % (str(message.chat.id), str(norm_k)))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    bot.send_message(message.chat.id, f'Твоя норма калорий(без учёта активности): {norm_k} \nТеперь ты можешь каждый день записывать то,'
+                                      f' сколько ты употребил калорий и сколько сжег')
+    m_help(message)
+
+    weight, hght, yo = None, None, None
+
+
+@bot.message_handler(commands=['yandex', 'яндекс'])
+def m_yandex_L(message):
+    webbrowser.open('https://lms.yandex.ru')
+
+
+@bot.callback_query_handler(func=lambda callback: True)
+def callback_mes(callback):
+    if callback.data == 'help':
+        m_help(callback.message)
+        bot.delete_message(callback.message.chat.id, callback.message.message_id)
+    if callback.data == 'start_d':
+        m_start_d(callback.message)
+        bot.delete_message(callback.message.chat.id, callback.message.message_id)
+    if callback.data == 'inf_n_k':
+        inf_n_k(callback.message)
+        bot.delete_message(callback.message.chat.id, callback.message.message_id)
+    if callback.data == 'concluse':
+        concluse(callback.message)
+        bot.delete_message(callback.message.chat.id, callback.message.message_id)
+    if callback.data == 'trati':
+        m_concluse(callback.message, 1)
+        bot.delete_message(callback.message.chat.id, callback.message.message_id)
+    if callback.data == 'potrebl':
+        m_concluse(callback.message, 2)
+        bot.delete_message(callback.message.chat.id, callback.message.message_id)
+
+
+@bot.message_handler()
+def com(messange):
+    if messange.text.lower() in ['привет']:
+        m_start(messange)
+    if messange.text.lower() in ['помоги']:
+        m_help(messange)
+    if messange.text.lower() in ['yandex', 'яндекс']:
+        m_yandex_L(messange)
+    if messange.text.lower() in ['быстрый старт', 'начало']:
+        m_start_d(messange)
+
+
+bot.infinity_polling()
